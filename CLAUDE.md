@@ -1,5 +1,9 @@
 # vmarket
 
+## Kde pokračovat
+
+Plán projektu po fázích je v `docs/plan.md`, pojmy v `GLOSSARY.md`. Fáze 1 (zobecnění první aplikace) běží v sousedním repu `../dominik-web` ve složce `.scratch/vmarket-kontrakt/` a orchestruje ji `/next`.
+
 ## Agent skills
 
 ### Issue tracker
