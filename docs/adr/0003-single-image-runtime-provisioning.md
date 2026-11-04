@@ -1,0 +1,3 @@
+# Single shared image with runtime provisioning
+
+Every Instance of an App runs the same docker image. All customer-specific data — branding (name, logo, colors), business settings, catalogue, and the Operator account — enters at runtime: database migrations contain schema only, and the control plane delivers a Provisioning Payload (`/data/provision.json`) that the Instance imports on first boot. Per-customer image builds were rejected because they would break automatic Releases and multiply build infrastructure; build-time branding (the current state of the driving-school app) is being removed for the same reason.

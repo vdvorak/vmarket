@@ -1,0 +1,3 @@
+# Instance-per-customer isolation on Fly.io
+
+Each Customer gets a fully isolated Instance: its own Fly app, its own SQLite database on its own volume, its own backup replica, and its own subdomain. We chose this over converting apps to multi-tenancy because existing single-customer apps (like the driving-school app) can be sold almost unchanged — parameterized, not rewritten — and because isolation makes cross-customer data leaks structurally impossible. The cost is a per-customer infrastructure footprint (roughly $3–4/month for a running Instance, ~$0.30/month suspended), which Plans must price above.

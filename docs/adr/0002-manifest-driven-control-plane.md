@@ -1,0 +1,3 @@
+# Manifest-driven generic control plane
+
+vmarket contains no logic specific to any App. Each App declares everything the marketplace needs — identity, docker image, the Inputs its Customers must supply (a typed schema, not a fixed list), Plans, and resource requirements — in a Manifest file kept in the App's own repository. vmarket is a generic engine that can list, sell, provision, and operate anything with a valid Manifest. Chosen so that onboarding the Nth App means writing a Manifest, never extending marketplace code; the alternative (per-app integration code in vmarket) was rejected because it couples every App release to the marketplace codebase.
