@@ -77,6 +77,11 @@ def _fly_app(c: Ctx) -> dict[str, Any]:
     return {}
 
 
+def _public_ips(c: Ctx) -> dict[str, Any]:
+    c.adapters.fly.ensure_public_ips(c.fly_app)
+    return {}
+
+
 def _fly_volume(c: Ctx) -> dict[str, Any]:
     res = c.manifest.raw["resources"]
     c.adapters.fly.ensure_volume(c.fly_app, "data", res["volume_gb"], c.config.region)
@@ -166,6 +171,7 @@ STEPS: list[tuple[str, Callable[[Ctx], dict[str, Any]], int | None]] = [
     ("r2_bucket", _r2_bucket, None),
     ("smtp_check", _smtp_check, None),
     ("fly_app", _fly_app, None),
+    ("public_ips", _public_ips, None),
     ("fly_volume", _fly_volume, None),
     ("fly_secrets", _fly_secrets, None),
     ("dns", _dns, None),

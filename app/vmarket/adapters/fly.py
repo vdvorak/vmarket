@@ -33,6 +33,16 @@ class FlyApi:
             if r.status_code in {409, 422} and self.api.request("GET", f"/v1/apps/{name}", allow={404}).status_code == 404:
                 raise PermanentError(f"Fly app {name} nejde založit: {r.text[:300]}")
 
+    def ensure_public_ips(self, app: str) -> None:
+        listing = self.api.json("GET", f"/v1/apps/{app}/ip_assignments") or {}
+        existing = [ip for ip in listing.get("ips") or [] if not ip.get("egress")]
+        have_v6 = any(":" in ip.get("ip", "") for ip in existing)
+        have_v4 = any(":" not in ip.get("ip", "") for ip in existing)
+        if not have_v4:
+            self.api.json("POST", f"/v1/apps/{app}/ip_assignments", json={"type": "shared_v4"})
+        if not have_v6:
+            self.api.json("POST", f"/v1/apps/{app}/ip_assignments", json={"type": "v6"})
+
     def ensure_volume(self, app: str, name: str, size_gb: int, region: str) -> None:
         volumes = self.api.json("GET", f"/v1/apps/{app}/volumes")
         if any(v["name"] == name and v.get("state") != "destroyed" for v in volumes):

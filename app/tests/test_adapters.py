@@ -76,6 +76,15 @@ def test_fly_sends_bearer_token() -> None:
     assert seen == ["Bearer tok"]
 
 
+def test_fly_assigns_missing_public_ips_only() -> None:
+    m = Mock({("GET", "/v1/apps/a/ip_assignments"): {"ips": []}, ("POST", "/v1/apps/a/ip_assignments"): {"ip": "x"}})
+    FlyApi("t", "o", transport=m.transport).ensure_public_ips("a")
+    assert [c[2]["type"] for c in m.calls if c[0] == "POST"] == ["shared_v4", "v6"]
+    have = Mock({("GET", "/v1/apps/a/ip_assignments"): {"ips": [{"ip": "66.1.1.1"}, {"ip": "2a09::1"}, {"ip": "9.9.9.9", "egress": True}]}})
+    FlyApi("t", "o", transport=have.transport).ensure_public_ips("a")
+    assert have.paths() == ["GET /v1/apps/a/ip_assignments"]
+
+
 def test_fly_volume_is_created_once() -> None:
     m = Mock({("GET", "/v1/apps/a/volumes"): [{"name": "data", "state": "created"}]})
     FlyApi("t", "o", transport=m.transport).ensure_volume("a", "data", 1, "fra")

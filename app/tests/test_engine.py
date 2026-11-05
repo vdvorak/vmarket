@@ -66,7 +66,7 @@ def test_happy_path(env: Env) -> None:
     assert json.loads(w.files["/data/branding/branding.json"])["name"] == "Autoškola Testová"
     assert w.spec is not None and w.spec.image == "ghcr.io/vdvorak/autoskola-app:1.0.0" and w.spec.memory_mb == 512
     assert w.spec.env["APP_URL"] == "https://testova.apps.example.cz"
-    assert env.steps("done")[-1] == "verify_import" and len(env.steps("done")) == 11
+    assert env.steps("done")[-1] == "verify_import" and len(env.steps("done")) == 12
 
 
 def test_retries_transient_errors_with_backoff(env: Env) -> None:
@@ -80,7 +80,7 @@ def test_gives_up_after_retries_then_resumes_without_repeating_done_steps(env: E
     env.world.fail["ensure_machine"] = 99
     assert env.run() == "failed"
     assert "ensure_machine" in env.row()["failure_reason"] or "machine" in env.row()["failure_reason"]
-    assert env.steps("done") == ["r2_bucket", "smtp_check", "fly_app", "fly_volume", "fly_secrets", "dns"]
+    assert env.steps("done") == ["r2_bucket", "smtp_check", "fly_app", "public_ips", "fly_volume", "fly_secrets", "dns"]
     before = dict(env.world.calls)
 
     env.world.fail["ensure_machine"] = 0
@@ -146,7 +146,7 @@ def test_running_instance_cannot_be_provisioned_again(env: Env) -> None:
 def test_events_are_logged(env: Env) -> None:
     env.run()
     kinds = [r[0] for r in env.conn.execute("SELECT kind FROM event_log WHERE instance_id = ?", (env.id,))]
-    assert kinds.count("provision.step") == 11 and kinds[-1] == "instance.running"
+    assert kinds.count("provision.step") == 12 and kinds[-1] == "instance.running"
 
 
 def test_smtp_is_checked_with_customers_credentials(env: Env) -> None:

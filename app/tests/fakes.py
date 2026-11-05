@@ -37,6 +37,9 @@ class FakeFly:
     def ensure_app(self, name: str) -> None:
         self.w.hit("ensure_app")
 
+    def ensure_public_ips(self, app: str) -> None:
+        self.w.hit("ensure_public_ips")
+
     def ensure_volume(self, app: str, name: str, size_gb: int, region: str) -> None:
         self.w.hit("ensure_volume")
 
