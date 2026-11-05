@@ -8,4 +8,4 @@
 - `make check` — lint + testy (to samé běží v CI)
 - `make image` — runtime image; `/api/health` na portu 8000, metriky na interním portu 9091
 
-Admin CLI: `python -m vmarket.cli --help`-style příkazy jsou popsané v `app/vmarket/cli.py` (`app register`, `release add`, `instance comp|provision|suspend|resume|delete`, `status`). Skutečné adaptéry (Fly, Cloudflare, R2, Resend) se napojí v issue #6.
+Admin CLI: `python -m vmarket.cli --help`-style příkazy jsou popsané v `app/vmarket/cli.py` (`app register`, `release add`, `instance comp|provision|suspend|resume|delete`, `status`). Skutečné adaptéry (Fly, Cloudflare, R2, Resend) se berou z proměnných prostředí, seznam je v `app/vmarket/adapters/factory.py`.

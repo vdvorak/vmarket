@@ -123,10 +123,10 @@ def test_errors_are_reported_not_raised(c: Cli) -> None:
     assert c("instance", "comp", "--app", "autoskola", "--slug", "Spatny_Slug", "--email", "a@b.cz", "--no-provision") == 1
 
 
-def test_default_adapters_not_wired_yet(c: Cli) -> None:
+def test_missing_adapter_config_is_reported(c: Cli) -> None:
     conn: sqlite3.Connection = c.conn
     lines: list[str] = []
     code = cli.run(
         ["instance", "comp", "--app", "autoskola", "--slug", "x", "--email", "a@b.cz"], conn, cli.default_adapters, out=lines.append
     )
-    assert code == 1 and "nejsou napojené" in lines[-1]
+    assert code == 1 and "Chybí proměnné prostředí" in lines[-1]

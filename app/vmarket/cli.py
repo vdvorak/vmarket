@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Any
 
 from vmarket import db, lifecycle, manifest, repo
+from vmarket.adapters import factory
 from vmarket.provisioning.engine import Config, provision
 from vmarket.provisioning.ports import Adapters
 
@@ -30,7 +31,10 @@ class CliError(Exception):
 
 
 def default_adapters() -> Adapters:
-    raise CliError("Adaptéry Fly, Cloudflare, R2 a Resend zatím nejsou napojené (issue „Ověření fáze 2“).")
+    try:
+        return factory.from_env()
+    except factory.ConfigError as e:
+        raise CliError(str(e)) from e
 
 
 def _load_inputs(path: Path) -> dict[str, Any]:
