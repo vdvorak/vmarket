@@ -21,7 +21,14 @@ provisioning:
   payload_file: /data/provision.json
   payload_version: 1
   branding_dir: /data/branding
-  branding_defaults_dir: /app/design/default # tokens.css v image; provisioner z něj dělá tokens.css zákazníka
+  branding_defaults_dir: /app/design/default # neutrální výchozí branding v image; z jeho tokens.css provisioner dělá tokens.css zákazníka
+
+# Statické proměnné prostředí každé Instance. APP_URL, SMTP_*, MAIL_FROM a LITESTREAM_* doplňuje vmarket sám.
+env:
+  APP_ENV: production
+  SMTP_PORT: "587"
+  # IP klienta pro limity pokusů. Hlavičku nastavuje proxy Fly, X-Forwarded-For klient podvrhne.
+  CLIENT_IP_HEADER: Fly-Client-IP
 
 resources:
   machines: 1 # přesně jeden stroj, plánovač a Litestream nesnesou dva

@@ -1,0 +1,20 @@
+{
+  "school_name": "Autoškola Testová",
+  "logo": {"$file": "logo.png"},
+  "colors": {"primary": "#7b2cbf", "accent": "#2ec4b6"},
+  "operator_email": "ZMENIT@example.cz",
+  "operator_person_name": "Test Provozovatel",
+  "operator_name": "Autoškola Testová s.r.o.",
+  "operator_ico": "12345678",
+  "operator_address": "Testovací 1, 110 00 Praha",
+  "phone": "+420 777 000 999",
+  "bank_account": "19-2000145399/0800",
+  "terms_url": "https://testova.example/podminky/",
+  "privacy_url": "https://testova.example/osobni-udaje/",
+  "withdrawal_url": "https://testova.example/odstoupeni/",
+  "courses": [
+    {"course_slug": "kurz-b", "course_name": "Řidičák B", "course_halves": true, "course_driving": true,
+     "variant_key": "zaklad", "variant_name": "Základní kurz", "variant_price": 19000, "variant_hours": 28, "variant_weekly_limit": 2}
+  ],
+  "extra_ride_prices": [{"rides": 1, "price": 900}, {"rides": 3, "price": 2500}, {"rides": 6, "price": 4800}]
+}
