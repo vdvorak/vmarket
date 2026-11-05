@@ -14,7 +14,7 @@ class World:
     def __init__(self) -> None:
         self.calls: dict[str, int] = defaultdict(int)
         self.fail: dict[str, int] = {}
-        self.files: dict[str, bytes] = {"/app/design/default/tokens.css": TOKENS.encode()}
+        self.files: dict[str, bytes] = {"/app/design/tokens.css": TOKENS.encode()}
         self.machine_ready = False
         self.healthy = False
         self.logs: list[str] = []

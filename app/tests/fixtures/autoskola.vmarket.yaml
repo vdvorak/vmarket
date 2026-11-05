@@ -21,7 +21,7 @@ provisioning:
   payload_file: /data/provision.json
   payload_version: 1
   branding_dir: /data/branding
-  branding_defaults_dir: /app/design/default # neutrální výchozí branding v image; z jeho tokens.css provisioner dělá tokens.css zákazníka
+  branding_defaults_dir: /app/design # neutrální výchozí branding v image; z jeho tokens.css provisioner dělá tokens.css zákazníka
 
 # Statické proměnné prostředí každé Instance. APP_URL, SMTP_*, MAIL_FROM a LITESTREAM_* doplňuje vmarket sám.
 sends_email: true # aplikace posílá e-maily; zákazník dodá SMTP schránku (Inputy níže, App Contract: Configuration)
