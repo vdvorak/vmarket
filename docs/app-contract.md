@@ -50,3 +50,21 @@ What an App must satisfy to be registered in vmarket. This draft guides Phase 1;
 
 - A `vmarket.yaml` at the App's root declares: identity (id, name, description), image reference, the Inputs schema (typed: text, image, color, money, list/table), Plans, and resource requirements (RAM, volume size).
 - The Inputs schema is what generates the order form and the Provisioning Payload; it is the single source of truth for what a Customer must supply.
+
+### Manifest format (v1)
+
+First implemented by the autoskola App (`app/vmarket.yaml` in dominik-web); this is the reference shape. Top-level keys:
+
+- `manifest_version`, `id`, `name`, `description`, `image` (no tag; the Release adds it).
+- `provisioning`: `payload_file`, `payload_version`, `branding_dir`. The payload format itself is owned by the App (documented in its README) and versioned by `payload_version`.
+- `resources`: `machines` (must be 1), `memory_mb`, `volume_gb`, `volume_mount`, `port`, `health` (`path`, `grace_period_s`), `metrics` (`port`, `path`).
+- `plans`: list of `id`, `name`, `interval`, `price_czk` (`null` = TBD until pricing is decided).
+- `inputs`: list of typed fields. Each has `id`, `type`, `label` (shown to the Customer, in the App's language), optional `help`, `required`, `default`, `validation`, and `target`.
+- `payload_constants`: fixed payload values the Customer does not enter (for example `version`).
+
+Input types: `text`, `email`, `url`, `number`, `money` (with `currency`), `boolean`, `image`, `color_tokens` (a group of `color` fields, each mapped to a CSS token), `table`. A `table` has `columns` (same field shape, `target` is relative to a row) and `min_rows`/`max_rows`. Rows that share a parent key are grouped by the provisioner (autoskola: `courses` rows with the same `course_slug` become one course with `variants[]`).
+
+`validation` keys: `min_length`, `max_length`, `pattern` (+ `message`), `min`, `max`, `integer`, `one_of`, `schemes` (url), `formats`/`min_width_px`/`max_size_kb` (image), `min_rows`/`max_rows`. The same rules must be enforced by the App when it imports the payload; the manifest is stricter or equal, never looser.
+
+`target` says where the value lands: `payload:<dotted.path>` is a key in `provision.json`; `branding:<file>` is a file the provisioner writes straight into `branding_dir` (`branding:branding.json#name` is a key inside a JSON file the provisioner assembles). Branding therefore never travels in the payload, matching the App Contract's Branding section.
+
