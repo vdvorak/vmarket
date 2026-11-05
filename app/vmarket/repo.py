@@ -52,11 +52,26 @@ def get_or_create_customer(conn: sqlite3.Connection, email: str) -> int:
     return int(row["id"])
 
 
-def create_comped_instance(conn: sqlite3.Connection, *, app_id: str, customer_id: int, slug: str) -> int:
+def add_release(conn: sqlite3.Connection, *, app_id: str, tag: str, scan_attestation: dict[str, object] | None = None) -> int:
+    """Zapíše přijatý Release; image_ref je image z App a tag. (Release API s Security Gate přijde ve fázi 4.)"""
+    with conn:
+        app = conn.execute("SELECT image, manifest_json FROM apps WHERE id = ?", (app_id,)).fetchone()
+        cur = conn.execute(
+            "INSERT INTO releases (app_id, tag, image_ref, manifest_json, scan_attestation_json) VALUES (?, ?, ?, ?, ?)",
+            (app_id, tag, f"{app['image']}:{tag}", app["manifest_json"], json.dumps(scan_attestation) if scan_attestation else None),
+        )
+        log_event(conn, "release.accepted", f"{app_id}:{tag}")
+    return int(cur.lastrowid or 0)
+
+
+def create_comped_instance(
+    conn: sqlite3.Connection, *, app_id: str, customer_id: int, slug: str, inputs: dict[str, object] | None = None
+) -> int:
+    """Inputs: id Inputu → hodnota; obrázky jako {"$base64": "..."}."""
     with conn:
         cur = conn.execute(
-            "INSERT INTO instances (app_id, customer_id, slug, billing_mode) VALUES (?, ?, ?, 'comped')",
-            (app_id, customer_id, slug),
+            "INSERT INTO instances (app_id, customer_id, slug, billing_mode, inputs_json) VALUES (?, ?, ?, 'comped', ?)",
+            (app_id, customer_id, slug, json.dumps(inputs or {})),
         )
         instance_id = int(cur.lastrowid or 0)
         log_event(conn, "instance.created", "comped", instance_id)

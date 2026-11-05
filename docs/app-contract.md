@@ -56,7 +56,8 @@ What an App must satisfy to be registered in vmarket. This draft guides Phase 1;
 First implemented by the autoskola App (`app/vmarket.yaml` in dominik-web); this is the reference shape. Top-level keys:
 
 - `manifest_version`, `id`, `name`, `description`, `image` (no tag; the Release adds it).
-- `provisioning`: `payload_file`, `payload_version`, `branding_dir`. The payload format itself is owned by the App (documented in its README) and versioned by `payload_version`.
+- `provisioning`: `payload_file`, `payload_version`, `branding_dir`, `branding_defaults_dir` (directory in the image with the App's neutral default branding; required when an Input has type `color_tokens`, because the provisioner rewrites the tokens in the default `tokens.css` read from there).
+- `env` (optional): static environment variables every Instance gets (for example `SECURE_COOKIES`, `CLIENT_IP_HEADER`). vmarket adds the per-Instance ones itself (`APP_URL`, SMTP, Litestream). The payload format itself is owned by the App (documented in its README) and versioned by `payload_version`.
 - `resources`: `machines` (must be 1), `memory_mb`, `volume_gb`, `volume_mount`, `port`, `health` (`path`, `grace_period_s`), `metrics` (`port`, `path`).
 - `plans`: list of `id`, `name`, `interval`, `price_czk` (`null` = TBD until pricing is decided).
 - `inputs`: list of typed fields. Each has `id`, `type`, `label` (shown to the Customer, in the App's language), optional `help`, `required`, `default`, `validation`, and `target`.

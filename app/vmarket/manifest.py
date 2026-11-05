@@ -68,6 +68,10 @@ def parse(text: str) -> Manifest:
         data = yaml.safe_load(text)
     except yaml.YAMLError as e:
         raise ManifestError(f"Neplatné YAML: {e}") from e
+    return from_dict(data)
+
+
+def from_dict(data: Any) -> Manifest:
     _require(isinstance(data, dict), "Manifest musí být objekt")
     _require(data.get("manifest_version") == 1, "manifest_version: podporovaná je jen 1")
     app_id = _text(data, "id", "")
