@@ -77,6 +77,18 @@ class FakeFly:
         self.w.files["/data/provision.json.done"] = self.w.files.pop("/data/provision.json")
         self.w.healthy = True
 
+    def stop_machine(self, app: str) -> None:
+        self.w.hit("stop_machine")
+        self.w.machine_ready = False
+
+    def start_machine(self, app: str) -> None:
+        self.w.hit("start_machine")
+        self.w.machine_ready = True
+
+    def destroy_app(self, app: str) -> None:
+        self.w.hit("destroy_app")
+        self.w.machine_ready = False
+
     def recent_logs(self, app: str) -> list[str]:
         return self.w.logs
 
@@ -88,6 +100,10 @@ class FakeDns:
     def ensure_cname(self, name: str, target: str) -> None:
         self.w.hit("ensure_cname")
         self.w.dns[name] = target
+
+    def delete_cname(self, name: str) -> None:
+        self.w.hit("delete_cname")
+        self.w.dns.pop(name, None)
 
 
 class FakeStore:

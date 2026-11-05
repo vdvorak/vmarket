@@ -78,18 +78,24 @@ def create_comped_instance(
     return instance_id
 
 
+def check_transition(conn: sqlite3.Connection, instance_id: int, new_state: str) -> None:
+    """Vyhodí TransitionError (nebo LookupError), když přechod není povolený; nic nemění.
+    Comped Instance nejde suspendovat."""
+    row = conn.execute("SELECT state, billing_mode FROM instances WHERE id = ?", (instance_id,)).fetchone()
+    if row is None:
+        raise LookupError(f"Instance {instance_id} neexistuje")
+    if new_state not in TRANSITIONS[row["state"]]:
+        raise TransitionError(f"{row['state']} → {new_state} není povolený přechod")
+    if new_state == "suspended" and row["billing_mode"] == "comped":
+        raise TransitionError("Comped Instance se nesuspenduje")
+
+
 def transition(conn: sqlite3.Connection, instance_id: int, new_state: InstanceState, detail: str = "") -> None:
     """Přechod stavu podle TRANSITIONS; neplatný přechod vyhodí TransitionError a nic nezapíše.
-    Comped Instance nejde suspendovat. `failed` ukládá důvod, ostatní stavy ho nulují."""
+    `failed` ukládá důvod, ostatní stavy ho nulují."""
     with conn:
-        row = conn.execute("SELECT state, billing_mode FROM instances WHERE id = ?", (instance_id,)).fetchone()
-        if row is None:
-            raise LookupError(f"Instance {instance_id} neexistuje")
-        old = row["state"]
-        if new_state not in TRANSITIONS[old]:
-            raise TransitionError(f"{old} → {new_state} není povolený přechod")
-        if new_state == "suspended" and row["billing_mode"] == "comped":
-            raise TransitionError("Comped Instance se nesuspenduje")
+        check_transition(conn, instance_id, new_state)
+        old = conn.execute("SELECT state FROM instances WHERE id = ?", (instance_id,)).fetchone()["state"]
         conn.execute(
             """UPDATE instances SET state = ?, failure_reason = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
             deleted_at = CASE WHEN ? = 'deleted' THEN strftime('%Y-%m-%dT%H:%M:%fZ', 'now') ELSE deleted_at END WHERE id = ?""",
