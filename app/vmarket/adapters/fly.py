@@ -13,7 +13,7 @@ from typing import Any
 import httpx2
 
 from vmarket.adapters.http import Api
-from vmarket.provisioning.ports import AdapterError, MachineSpec
+from vmarket.provisioning.ports import AdapterError, MachineSpec, PermanentError
 
 MACHINES_URL = "https://api.machines.dev"
 LOGS_URL = "https://api.fly.io"
@@ -31,7 +31,7 @@ class FlyApi:
         if self.api.request("GET", f"/v1/apps/{name}", allow={404}).status_code == 404:
             r = self.api.request("POST", "/v1/apps", json={"name": name, "org_slug": self.org}, allow={409, 422})
             if r.status_code in {409, 422} and self.api.request("GET", f"/v1/apps/{name}", allow={404}).status_code == 404:
-                raise AdapterError(f"Fly app {name} nejde založit: {r.text[:200]}")
+                raise PermanentError(f"Fly app {name} nejde založit: {r.text[:300]}")
 
     def ensure_volume(self, app: str, name: str, size_gb: int, region: str) -> None:
         volumes = self.api.json("GET", f"/v1/apps/{app}/volumes")

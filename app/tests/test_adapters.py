@@ -59,6 +59,12 @@ def test_fly_ensure_app_creates_only_when_missing() -> None:
     assert m2.paths() == ["GET /v1/apps/a"]
 
 
+def test_fly_app_creation_refused_is_permanent_not_retried() -> None:
+    m = Mock({("GET", "/v1/apps/a"): (404, {}), ("POST", "/v1/apps"): (422, {"error": "We need your payment information to continue!"})})
+    with pytest.raises(PermanentError, match="payment information"):
+        FlyApi("t", "o", transport=m.transport).ensure_app("a")
+
+
 def test_fly_sends_bearer_token() -> None:
     seen: list[str] = []
 
