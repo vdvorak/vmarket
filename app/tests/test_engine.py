@@ -66,7 +66,7 @@ def test_happy_path(env: Env) -> None:
     assert json.loads(w.files["/data/branding/branding.json"])["name"] == "Autoškola Testová"
     assert w.spec is not None and w.spec.image == "ghcr.io/vdvorak/autoskola-app:1.0.0" and w.spec.memory_mb == 512
     assert w.spec.env["APP_URL"] == "https://testova.apps.example.cz"
-    assert env.steps("done")[-1] == "verify_import" and len(env.steps("done")) == 12
+    assert env.steps("done")[-1] == "verify_import" and len(env.steps("done")) == 13
 
 
 def test_retries_transient_errors_with_backoff(env: Env) -> None:
@@ -80,7 +80,7 @@ def test_gives_up_after_retries_then_resumes_without_repeating_done_steps(env: E
     env.world.fail["ensure_machine"] = 99
     assert env.run() == "failed"
     assert "ensure_machine" in env.row()["failure_reason"] or "machine" in env.row()["failure_reason"]
-    assert env.steps("done") == ["r2_bucket", "smtp_check", "fly_app", "public_ips", "fly_volume", "fly_secrets", "dns"]
+    assert env.steps("done") == ["r2_bucket", "smtp_check", "fly_app", "public_ips", "fly_volume", "fly_secrets", "dns", "custom_domain"]
     before = dict(env.world.calls)
 
     env.world.fail["ensure_machine"] = 0
@@ -146,7 +146,7 @@ def test_running_instance_cannot_be_provisioned_again(env: Env) -> None:
 def test_events_are_logged(env: Env) -> None:
     env.run()
     kinds = [r[0] for r in env.conn.execute("SELECT kind FROM event_log WHERE instance_id = ?", (env.id,))]
-    assert kinds.count("provision.step") == 12 and kinds[-1] == "instance.running"
+    assert kinds.count("provision.step") == 13 and kinds[-1] == "instance.running"
 
 
 def test_smtp_is_checked_with_customers_credentials(env: Env) -> None:
@@ -169,3 +169,19 @@ def test_smtp_secrets_are_erased_from_db_only_after_success(env: Env) -> None:
     assert env.run() == "running"
     stored = json.loads(env.row()["inputs_json"])
     assert "smtp_password" not in stored and "smtp_host" not in stored and stored["school_name"] == "Autoškola Testová"
+
+
+def test_custom_domain_gets_certificate_and_is_used_in_app_url(tmp_path: Path) -> None:
+    e = Env(tmp_path)
+    e.conn.execute("UPDATE instances SET custom_domain = 'zaci.ubouraka.cz'")
+    assert e.run() == "running"
+    assert e.world.spec is not None and e.world.spec.env["APP_URL"] == "https://zaci.ubouraka.cz"
+    assert e.world.calls["ensure_certificate"] == 2  # <slug>.apps… i doména zákazníka
+    out = json.loads(e.conn.execute("SELECT output_json FROM provisioning_steps WHERE step = 'custom_domain'").fetchone()[0])
+    assert out == {"domain": "zaci.ubouraka.cz", "cname_target": "vm-autoskola-testova.fly.dev"}
+
+
+def test_without_custom_domain_app_url_is_platform_host(env: Env) -> None:
+    env.run()
+    assert env.world.spec is not None and env.world.spec.env["APP_URL"] == "https://testova.apps.example.cz"
+    assert env.world.calls["ensure_certificate"] == 1

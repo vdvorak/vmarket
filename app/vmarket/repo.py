@@ -1,6 +1,7 @@
 """Repository: zápisy do DB a stavový automat Instance. Každá změna stavu jde přes `transition` a zapíše se do event logu."""
 
 import json
+import re
 import sqlite3
 from typing import Literal
 
@@ -64,14 +65,32 @@ def add_release(conn: sqlite3.Connection, *, app_id: str, tag: str, scan_attesta
     return int(cur.lastrowid or 0)
 
 
+HOSTNAME = re.compile(r"^(?=.{4,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$")
+
+
+def check_custom_domain(domain: str) -> str:
+    """Malá písmena, platné jméno hostitele s aspoň jednou tečkou (bez schématu a cesty)."""
+    domain = domain.strip().lower().rstrip(".")
+    if not HOSTNAME.match(domain):
+        raise ValueError(f"Neplatná doména {domain!r}: očekávám jméno jako zaci.example.cz")
+    return domain
+
+
 def create_comped_instance(
-    conn: sqlite3.Connection, *, app_id: str, customer_id: int, slug: str, inputs: dict[str, object] | None = None
+    conn: sqlite3.Connection,
+    *,
+    app_id: str,
+    customer_id: int,
+    slug: str,
+    inputs: dict[str, object] | None = None,
+    custom_domain: str | None = None,
 ) -> int:
-    """Inputs: id Inputu → hodnota; obrázky jako {"$base64": "..."}."""
+    """Inputs: id Inputu → hodnota; obrázky jako {"$base64": "..."}. `custom_domain`: vlastní doména zákazníka."""
+    domain = check_custom_domain(custom_domain) if custom_domain else None
     with conn:
         cur = conn.execute(
-            "INSERT INTO instances (app_id, customer_id, slug, billing_mode, inputs_json) VALUES (?, ?, ?, 'comped', ?)",
-            (app_id, customer_id, slug, json.dumps(inputs or {})),
+            "INSERT INTO instances (app_id, customer_id, slug, billing_mode, inputs_json, custom_domain) VALUES (?, ?, ?, 'comped', ?, ?)",
+            (app_id, customer_id, slug, json.dumps(inputs or {}), domain),
         )
         instance_id = int(cur.lastrowid or 0)
         log_event(conn, "instance.created", "comped", instance_id)

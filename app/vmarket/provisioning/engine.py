@@ -44,6 +44,7 @@ class Ctx:
     slug: str
     fly_app: str
     inputs: dict[str, Any]
+    custom_domain: str | None
     adapters: Adapters
     config: Config
     out: dict[str, dict[str, Any]]
@@ -51,6 +52,11 @@ class Ctx:
     @property
     def host(self) -> str:
         return f"{self.slug}.{self.config.base_domain}"
+
+    @property
+    def app_host(self) -> str:
+        """Adresa, kterou uvidí uživatelé a která jde do odkazů v e-mailech (APP_URL)."""
+        return self.custom_domain or self.host
 
     @property
     def machine_id(self) -> str:
@@ -99,12 +105,21 @@ def _dns(c: Ctx) -> dict[str, Any]:
     return {}
 
 
+def _custom_domain(c: Ctx) -> dict[str, Any]:
+    """Certifikát pro doménu zákazníka. DNS záznam u zákazníka vmarket založit neumí: zákazník musí CNAME nastavit sám
+    (vmarket ukáže kam ve `status`). Provisioning na tom nečeká, certifikát se vystaví, až CNAME začne platit."""
+    if not c.custom_domain:
+        return {}
+    c.adapters.fly.ensure_certificate(c.fly_app, c.custom_domain)
+    return {"domain": c.custom_domain, "cname_target": f"{c.fly_app}.fly.dev"}
+
+
 def _machine(c: Ctx) -> dict[str, Any]:
     res = c.manifest.raw["resources"]
     metrics = res.get("metrics") or {}
     env = {
         **(c.manifest.raw.get("env") or {}),
-        "APP_URL": f"https://{c.host}",
+        "APP_URL": f"https://{c.app_host}",
         "LITESTREAM_REPLICA_URL": c.out["r2_bucket"]["secrets"].get("LITESTREAM_REPLICA_URL", ""),
     }
     spec = MachineSpec(
@@ -177,6 +192,7 @@ STEPS: list[tuple[str, Callable[[Ctx], dict[str, Any]], int | None]] = [
     ("fly_volume", _fly_volume, None),
     ("fly_secrets", _fly_secrets, None),
     ("dns", _dns, None),
+    ("custom_domain", _custom_domain, None),
     ("machine", _machine, None),
     ("upload", _upload, None),
     ("restart", _restart, None),
@@ -217,6 +233,7 @@ def _load_ctx(conn: sqlite3.Connection, instance_id: int, adapters: Adapters, co
         row["slug"],
         fly_app,
         _decode(json.loads(row["inputs_json"])),
+        row["custom_domain"],
         adapters,
         config,
         out,

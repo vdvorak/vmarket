@@ -2,7 +2,7 @@
 
   app register <vmarket.yaml>             zaregistruje nebo aktualizuje App z Manifestu
   release add <app> <tag>                 zapíše přijatý Release (image = image z App + tag)
-  instance comp --app A --slug S --email E [--inputs inputs.json] [--no-provision]
+  instance comp --app A --slug S --email E [--inputs inputs.json] [--domain zaci.example.cz] [--no-provision]
                                           založí Comped Instance a provede Provisioning
   instance provision <id|slug>            dokončí/zopakuje Provisioning po `failed`
   instance suspend|resume|delete <id|slug>
@@ -76,6 +76,10 @@ def _status(conn: sqlite3.Connection, ref: str | None, out: Callable[[str], None
     row = conn.execute("SELECT * FROM instances WHERE id = ?", (_instance_id(conn, ref),)).fetchone()
     out(f"Instance {row['id']} ({row['slug']}): {row['state']}, {row['billing_mode']}, app {row['app_id']}")
     out(f"Fly app: {row['fly_app_name'] or '-'}")
+    if row["custom_domain"]:
+        target = f"{row['fly_app_name']}.fly.dev" if row["fly_app_name"] else "<fly app>.fly.dev"
+        out(f"Vlastní doména: {row['custom_domain']}")
+        out(f"  U zákazníka (DNS) nastavte: CNAME {row['custom_domain']} → {target}")
     if row["failure_reason"]:
         out(f"Selhání: {row['failure_reason']}")
     for s in conn.execute("SELECT * FROM provisioning_steps WHERE instance_id = ? ORDER BY rowid", (row["id"],)):
@@ -109,6 +113,7 @@ def run(
     comp.add_argument("--slug", required=True)
     comp.add_argument("--email", required=True)
     comp.add_argument("--inputs", type=Path)
+    comp.add_argument("--domain", help="vlastní doména zákazníka, např. zaci.ubouraka.cz")
     comp.add_argument("--no-provision", action="store_true")
     for name in ("provision", "suspend", "resume", "delete"):
         inst.add_parser(name).add_argument("ref")
@@ -128,7 +133,9 @@ def run(
             case ("instance", "comp"):
                 inputs = _load_inputs(a.inputs) if a.inputs else {}
                 customer = repo.get_or_create_customer(conn, a.email)
-                iid = repo.create_comped_instance(conn, app_id=a.app, customer_id=customer, slug=a.slug, inputs=inputs)
+                iid = repo.create_comped_instance(
+                    conn, app_id=a.app, customer_id=customer, slug=a.slug, inputs=inputs, custom_domain=a.domain
+                )
                 out(f"Comped Instance {iid} ({a.slug}) založena.")
                 if not a.no_provision:
                     out(f"Provisioning: {provision(conn, iid, adapters_factory(), config)}")
@@ -149,7 +156,7 @@ def run(
                 out("Smazáno.")
             case ("status", _):
                 _status(conn, a.ref, out)
-    except (CliError, manifest.ManifestError, repo.TransitionError, LookupError, sqlite3.IntegrityError, OSError) as e:
+    except (CliError, manifest.ManifestError, repo.TransitionError, LookupError, sqlite3.IntegrityError, ValueError, OSError) as e:
         out(f"Chyba: {e}")
         return 1
     return 0

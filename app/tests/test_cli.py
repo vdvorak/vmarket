@@ -130,3 +130,46 @@ def test_missing_adapter_config_is_reported(c: Cli) -> None:
         ["instance", "comp", "--app", "autoskola", "--slug", "x", "--email", "a@b.cz"], conn, cli.default_adapters, out=lines.append
     )
     assert code == 1 and "Chybí proměnné prostředí" in lines[-1]
+
+
+def test_custom_domain_is_shown_with_cname_instruction(c: Cli) -> None:
+    assert (
+        c(
+            "instance",
+            "comp",
+            "--app",
+            "autoskola",
+            "--slug",
+            "testova",
+            "--email",
+            "a@b.cz",
+            "--inputs",
+            str(c.inputs_file()),
+            "--domain",
+            "Zaci.Ubouraka.cz",
+        )
+        == 0
+    )
+    c.lines.clear()
+    c("status", "testova")
+    assert "CNAME zaci.ubouraka.cz → vm-autoskola-testova.fly.dev" in c.text
+
+
+def test_invalid_custom_domain_is_rejected(c: Cli) -> None:
+    assert (
+        c(
+            "instance",
+            "comp",
+            "--app",
+            "autoskola",
+            "--slug",
+            "x",
+            "--email",
+            "a@b.cz",
+            "--no-provision",
+            "--domain",
+            "https://zaci.ubouraka.cz/",
+        )
+        == 1
+    )
+    assert "Neplatná doména" in c.text
