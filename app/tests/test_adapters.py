@@ -339,7 +339,9 @@ def test_probe_returns_status_or_none() -> None:
     def down(_: httpx2.Request) -> httpx2.Response:
         raise httpx2.ConnectError("x")
 
-    assert HttpProbe(transport=httpx2.MockTransport(down)).get("https://x") is None
+    probe = HttpProbe(transport=httpx2.MockTransport(down))
+    assert probe.get("https://x") is None
+    assert probe.last_error.startswith("ConnectError")  # příčina se předá do hlášky o selhání
 
 
 def test_factory_lists_all_missing_variables() -> None:

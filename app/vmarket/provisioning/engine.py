@@ -156,7 +156,9 @@ def _health(c: Ctx) -> dict[str, Any]:
     for line in reversed(logs):
         if PAYLOAD_ERROR_MARKER in line:
             raise PermanentError(f"Aplikace odmítla payload: {line.strip()}")
-    raise AdapterError("Health check neprošel: " + " | ".join(logs[-5:]))
+    detail = " | ".join(logs[-5:]) or "logy z Fly nejsou k dispozici"
+    last_error = getattr(c.adapters.probe, "last_error", "")
+    raise AdapterError(f"Health check neprošel ({url}): {last_error or 'odpověď jiná než 200'}; {detail}")
 
 
 def _verify_import(c: Ctx) -> dict[str, Any]:
