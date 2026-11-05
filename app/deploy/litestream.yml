@@ -1,0 +1,15 @@
+# Průběžná záloha SQLite do úložiště kompatibilního s S3 (Litestream 0.5, spouští ji start.sh).
+# ${…} doplní Litestream z proměnných prostředí, prázdná hodnota znamená výchozí. Přístupové klíče čte sám
+# z LITESTREAM_ACCESS_KEY_ID a LITESTREAM_SECRET_ACCESS_KEY.
+snapshot:
+  interval: 24h
+  # Historie 30 dní: se snímkem staršího data se smažou i změny před ním.
+  retention: 720h
+
+dbs:
+  - path: ${DATABASE_PATH}
+    replica:
+      url: ${LITESTREAM_REPLICA_URL}
+      endpoint: ${LITESTREAM_S3_ENDPOINT}
+      region: ${LITESTREAM_S3_REGION}
+      force-path-style: ${LITESTREAM_S3_FORCE_PATH_STYLE}
