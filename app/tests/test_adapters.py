@@ -53,7 +53,7 @@ SPEC = MachineSpec(
 def test_fly_ensure_app_creates_only_when_missing() -> None:
     m = Mock({("GET", "/v1/apps/a"): (404, {}), ("POST", "/v1/apps"): (201, {"id": "x"})})
     FlyApi("t", "org", transport=m.transport).ensure_app("a")
-    assert m.calls[1][2]["org_slug"] == "org" and m.calls[1][2]["name"] == "a"
+    assert m.calls[1][2] == {"name": "a", "org_slug": "org"}  # app_name vedle name Fly odmítá (400)
     m2 = Mock({("GET", "/v1/apps/a"): {"name": "a"}})
     FlyApi("t", "org", transport=m2.transport).ensure_app("a")
     assert m2.paths() == ["GET /v1/apps/a"]

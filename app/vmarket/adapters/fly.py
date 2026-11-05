@@ -29,7 +29,7 @@ class FlyApi:
 
     def ensure_app(self, name: str) -> None:
         if self.api.request("GET", f"/v1/apps/{name}", allow={404}).status_code == 404:
-            r = self.api.request("POST", "/v1/apps", json={"app_name": name, "name": name, "org_slug": self.org}, allow={409, 422})
+            r = self.api.request("POST", "/v1/apps", json={"name": name, "org_slug": self.org}, allow={409, 422})
             if r.status_code in {409, 422} and self.api.request("GET", f"/v1/apps/{name}", allow={404}).status_code == 404:
                 raise AdapterError(f"Fly app {name} nejde založit: {r.text[:200]}")
 
