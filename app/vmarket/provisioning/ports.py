@@ -1,5 +1,5 @@
 """Rozhraní k vnějším službám. Provisioner zná jen tyto protokoly; skutečné adaptéry (Fly Machines API, Cloudflare, R2,
-Resend) přijdou v issue "Ověření fáze 2", v testech jsou fake. Každá metoda `ensure_*` musí být idempotentní:
+SMTP) přijdou v issue "Ověření fáze 2", v testech jsou fake. Každá metoda `ensure_*` musí být idempotentní:
 druhé volání se stejnými argumenty nic nezmění a vrátí totéž. Chyba služby = `AdapterError` (provisioner zkusí znovu)."""
 
 from dataclasses import dataclass, field
