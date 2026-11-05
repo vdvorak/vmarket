@@ -39,3 +39,6 @@ strict = true
 python_version = "3.12"
 cache_dir = "/tmp/mypy-cache"
 files = ["vmarket", "tests"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S105", "S106"]

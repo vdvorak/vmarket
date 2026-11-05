@@ -19,9 +19,9 @@ vmarket sells isolated, self-service Instances of the owner's own Apps. A Custom
 - **Stripe (CZ):** 1.5% + 6.50 CZK per standard EEA card + ~0.7% Billing fee. MVP: monthly subscriptions only, no trial. Provisioning happens strictly after the payment webhook. Dunning → Suspend → delete after 30 days (last backup kept).
 - **Fly costs:** running Instance (512 MB + 1 GB volume) ≈ $3–4/month; suspended ≈ $0.30/month.
 - **Domain `vitekdvorak.cz`:** registrar Forpsi, DNS currently at Forpsi (no usable API) → move NS to Cloudflare (free). Root serves GitHub Pages (A 185.199.108.153); no MX/TXT records exist today.
-- **URL scheme:** `store.vitekdvorak.cz` (marketplace), `<slug>.apps.vitekdvorak.cz` (Instances), `mail.vitekdvorak.cz` (sending domain).
-- **Email:** Resend over SMTP; vmarket provisions a sender identity + SMTP credentials per Instance. Customers cannot bring their own SMTP.
-- **Business:** OSVČ for now (s.r.o. when strangers pay), non-VAT-payer — must register as "identifikovaná osoba" (reverse charge on foreign services: Fly, Cloudflare, Resend). CZ customers only, so no OSS.
+- **URL scheme:** `store.vitekdvorak.cz` (marketplace), `<slug>.apps.vitekdvorak.cz` (Instances).
+- **Email:** the Customer supplies SMTP credentials (host, port, user, password, sender) as Inputs; vmarket verifies them at order time and as a Provisioning step, and passes them to the Instance as Fly secrets (ADR 0005). No platform mail provider in the MVP.
+- **Business:** OSVČ for now (s.r.o. when strangers pay), non-VAT-payer — must register as "identifikovaná osoba" (reverse charge on foreign services: Fly, Cloudflare). CZ customers only, so no OSS.
 - **Customer accounts:** classic registration (email + password, verification, reset — reuse patterns from the zaci app). Billing self-service via Stripe Customer Portal; vmarket builds no billing UI.
 - **Admin:** CLI only in MVP (register App, create Comped Instance, suspend/delete, status). Comped Instances have no Stripe objects and never suspend; only the owner creates them.
 - **Observability:** Fly managed Prometheus/Grafana for platform metrics per Instance (free); `/metrics` endpoint required by the App Contract; vmarket probes every Instance externally each minute and stores uptime/latency history in its own DB; email alerts on thresholds; an external uptime service watches vmarket itself.
@@ -35,7 +35,6 @@ vmarket sells isolated, self-service Instances of the owner's own Apps. A Custom
 - [ ] Move `vitekdvorak.cz` DNS to Cloudflare (copy the GitHub Pages records; registrar stays Forpsi)
 - [ ] Dedicated Fly organization + scoped API token
 - [ ] Cloudflare R2 bucket strategy + API token
-- [ ] Resend account, verify `mail.vitekdvorak.cz`
 - [ ] Accountant: register as identifikovaná osoba
 
 ### Phase 1 — Generalize the zaci app (de-risks the biggest unknown; start immediately)

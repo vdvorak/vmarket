@@ -24,9 +24,10 @@ provisioning:
   branding_defaults_dir: /app/design/default # neutrální výchozí branding v image; z jeho tokens.css provisioner dělá tokens.css zákazníka
 
 # Statické proměnné prostředí každé Instance. APP_URL, SMTP_*, MAIL_FROM a LITESTREAM_* doplňuje vmarket sám.
+sends_email: true # aplikace posílá e-maily; zákazník dodá SMTP schránku (Inputy níže, App Contract: Configuration)
+
 env:
   APP_ENV: production
-  SMTP_PORT: "587"
   # IP klienta pro limity pokusů. Hlavičku nastavuje proxy Fly, X-Forwarded-For klient podvrhne.
   CLIENT_IP_HEADER: Fly-Client-IP
 
@@ -94,6 +95,44 @@ inputs:
     target: payload:operator.name
     required: true
     validation: { min_length: 2, max_length: 80 }
+
+  # --- Odchozí pošta (schránka autoškoly; vmarket údaje ověří a uloží jen jako tajné hodnoty Instance) ---
+  - id: smtp_host
+    type: text
+    label: Server odchozí pošty (SMTP)
+    help: Adresa SMTP serveru vaší e-mailové schránky, třeba smtp.vase-autoskola.cz. Najdete ji v nastavení pošty u hostingu.
+    target: secret:SMTP_HOST
+    required: true
+    validation: { max_length: 253, pattern: "^[A-Za-z0-9.-]+$", message: Jen jméno serveru bez http a bez lomítek. }
+  - id: smtp_port
+    type: number
+    label: Port SMTP
+    help: 465 (šifrované spojení) nebo 587 (STARTTLS). Pokud nevíte, použijte 587.
+    target: secret:SMTP_PORT
+    required: true
+    default: 587
+    validation: { integer: true, one_of: [465, 587] }
+  - id: smtp_user
+    type: text
+    label: Uživatelské jméno schránky
+    help: Většinou celá e-mailová adresa.
+    target: secret:SMTP_USER
+    required: true
+    validation: { max_length: 254 }
+  - id: smtp_password
+    type: secret
+    label: Heslo schránky
+    help: Uloží se jen v Instanci autoškoly. Doporučujeme založit schránku určenou jen pro aplikaci.
+    target: secret:SMTP_PASSWORD
+    required: true
+    validation: { min_length: 1, max_length: 200 }
+  - id: mail_from
+    type: email
+    label: Adresa odesílatele
+    help: Odkud budou e-maily Žákům chodit, třeba info@vase-autoskola.cz. Musí patřit schránce výše.
+    target: secret:MAIL_FROM
+    required: true
+    validation: { max_length: 254 }
 
   # --- Údaje autoškoly (Nastavení) ---
   - id: operator_name

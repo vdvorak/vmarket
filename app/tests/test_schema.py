@@ -90,6 +90,7 @@ def test_slug_must_be_dns_safe(conn: sqlite3.Connection, instance: int) -> None:
         (lambda t: t.replace("machines: 1", "machines: 2"), "machines"),
         (lambda t: t.replace("image: ghcr.io/vdvorak/autoskola-app ", "image: ghcr.io/vdvorak/autoskola-app:1.0 "), "bez tagu"),
         (lambda t: t.replace("target: branding:logo-email.jpg", "target: nikam"), "target"),
+        (lambda t: t.replace("target: secret:SMTP_PASSWORD", "target: secret:JINE"), "SMTP_PASSWORD"),
     ],
 )
 def test_manifest_rejects(mutate: object, message: str) -> None:

@@ -3,7 +3,7 @@
 import json
 from collections import defaultdict
 
-from vmarket.provisioning.ports import AdapterError, Adapters, MachineSpec, Secrets
+from vmarket.provisioning.ports import AdapterError, Adapters, MachineSpec, PermanentError, Secrets
 
 TOKENS = ":root {\n\t--color-primary: #1f5fd6;\n\t--color-accent: #f4b200; /* komentář */\n}\n"
 
@@ -21,6 +21,7 @@ class World:
         self.secrets: dict[str, str] = {}
         self.dns: dict[str, str] = {}
         self.spec: MachineSpec | None = None
+        self.smtp_error = ""
 
     def hit(self, name: str) -> None:
         self.calls[name] += 1
@@ -115,13 +116,16 @@ class FakeStore:
         return Secrets({"LITESTREAM_REPLICA_URL": f"s3://{name}", "LITESTREAM_ACCESS_KEY_ID": "k"})
 
 
-class FakeMail:
+class FakeSmtp:
     def __init__(self, w: World) -> None:
         self.w = w
+        self.checked: list[tuple[str, int, str, str]] = []
 
-    def ensure_sender(self, slug: str) -> Secrets:
-        self.w.hit("ensure_sender")
-        return Secrets({"SMTP_HOST": "smtp.fake", "SMTP_PASSWORD": "pw", "MAIL_FROM": f"info@{slug}.fake"})
+    def check(self, host: str, port: int, user: str, password: str) -> None:
+        self.w.hit("smtp_check")
+        if self.w.smtp_error:
+            raise PermanentError(self.w.smtp_error)
+        self.checked.append((host, port, user, password))
 
 
 class FakeProbe:
@@ -134,4 +138,4 @@ class FakeProbe:
 
 
 def make(w: World) -> Adapters:
-    return Adapters(FakeFly(w), FakeDns(w), FakeStore(w), FakeMail(w), FakeProbe(w))
+    return Adapters(FakeFly(w), FakeDns(w), FakeStore(w), FakeSmtp(w), FakeProbe(w))

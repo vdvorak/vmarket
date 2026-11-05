@@ -1,6 +1,8 @@
 import base64
 import hashlib
 import json
+import smtplib
+import ssl
 from collections.abc import Callable
 from typing import Any
 
@@ -11,7 +13,7 @@ from vmarket.adapters import factory
 from vmarket.adapters.cloudflare import CloudflareDns, R2Store
 from vmarket.adapters.fly import FlyApi
 from vmarket.adapters.probe import HttpProbe
-from vmarket.adapters.resend import ResendMail
+from vmarket.adapters.smtp import SmtpChecker
 from vmarket.provisioning.ports import AdapterError, MachineSpec, PermanentError
 
 Handler = Callable[[httpx2.Request], httpx2.Response]
@@ -245,24 +247,72 @@ def test_r2_eu_jurisdiction_endpoint_and_header() -> None:
     assert seen == ["eu"] and s["LITESTREAM_S3_ENDPOINT"] == "https://acc.eu.r2.cloudflarestorage.com"
 
 
-# --- Resend ---
+# --- SMTP ---
 
 
-def test_resend_issues_scoped_key_and_smtp_settings() -> None:
-    m = Mock(
-        {
-            ("GET", "/api-keys"): {"data": [{"id": "k0", "name": "vmarket-testova"}, {"id": "k1", "name": "jiny"}]},
-            ("DELETE", "/api-keys/k0"): {},
-            ("POST", "/api-keys"): {"id": "k2", "token": "re_abc"},
-        }
-    )
-    s = ResendMail("t", "mail.vitekdvorak.cz", "dom1", transport=m.transport).ensure_sender("testova").values
-    assert s == {
-        "SMTP_HOST": "smtp.resend.com", "SMTP_PORT": "587", "SMTP_USER": "resend",
-        "SMTP_PASSWORD": "re_abc", "MAIL_FROM": "testova@mail.vitekdvorak.cz",
-    }  # fmt: skip
-    assert m.calls[-1][2] == {"name": "vmarket-testova", "permission": "sending_access", "domain_id": "dom1"}
-    assert "DELETE /api-keys/k1" not in m.paths()
+class FakeServer:
+    """Napodobuje smtplib.SMTP / SMTP_SSL; chování řídí atributy třídy."""
+
+    login_error: Exception | None = None
+    connect_error: Exception | None = None
+    log: list[str] = []  # noqa: RUF012
+
+    def __init__(self, host: str, port: int, timeout: float = 0, context: object = None) -> None:
+        if self.connect_error:
+            raise self.connect_error
+        self.log.append(f"connect {host}:{port} {type(self).__name__}")
+
+    def __enter__(self) -> "FakeServer":
+        return self
+
+    def __exit__(self, *a: object) -> None:
+        pass
+
+    def ehlo(self) -> None:
+        pass
+
+    def starttls(self, context: object = None) -> None:
+        self.log.append("starttls")
+
+    def login(self, user: str, password: str) -> None:
+        if self.login_error:
+            raise self.login_error
+        self.log.append(f"login {user}")
+
+
+class FakeServerSsl(FakeServer):
+    pass
+
+
+@pytest.fixture
+def smtp_env(monkeypatch: pytest.MonkeyPatch) -> type[FakeServer]:
+    FakeServer.login_error = None
+    FakeServer.connect_error = None
+    FakeServer.log = []
+    monkeypatch.setattr(smtplib, "SMTP", FakeServer)
+    monkeypatch.setattr(smtplib, "SMTP_SSL", FakeServerSsl)
+    return FakeServer
+
+
+def test_smtp_check_587_uses_starttls_and_465_implicit_tls(smtp_env: type[FakeServer]) -> None:
+    SmtpChecker().check("h.cz", 587, "u", "p")
+    assert smtp_env.log == ["connect h.cz:587 FakeServer", "starttls", "login u"]
+    smtp_env.log.clear()
+    SmtpChecker().check("h.cz", 465, "u", "p")
+    assert smtp_env.log == ["connect h.cz:465 FakeServerSsl", "login u"]
+
+
+def test_smtp_check_error_classification(smtp_env: type[FakeServer]) -> None:
+    smtp_env.login_error = smtplib.SMTPAuthenticationError(535, b"bad")
+    with pytest.raises(PermanentError, match="přihlášení odmítnuto"):
+        SmtpChecker().check("h.cz", 587, "u", "p")
+    smtp_env.login_error = None
+    smtp_env.connect_error = TimeoutError("timed out")
+    with pytest.raises(AdapterError, match="spojení selhalo"):
+        SmtpChecker().check("h.cz", 587, "u", "p")
+    smtp_env.connect_error = ssl.SSLCertVerificationError(1, "hostname mismatch")
+    with pytest.raises(PermanentError, match="certifikát"):
+        SmtpChecker().check("h.cz", 587, "u", "p")
 
 
 # --- Probe a factory ---

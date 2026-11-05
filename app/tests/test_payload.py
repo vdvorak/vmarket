@@ -27,6 +27,11 @@ def good_inputs() -> dict[str, Any]:
         "colors": {"primary": "#7b2cbf", "accent": "#2ec4b6"},
         "operator_email": "a@b.cz",
         "operator_person_name": "Test Provozovatel",
+        "smtp_host": "smtp.testova.example",
+        "smtp_port": 587,
+        "smtp_user": "info@testova.example",
+        "smtp_password": "tajne-heslo",
+        "mail_from": "info@testova.example",
     }
     required = {i["id"]: i for i in M.raw["inputs"] if i.get("required")}
     samples = {
@@ -104,3 +109,26 @@ def test_rejects_bad_inputs(change: dict[str, Any], message: str) -> None:
 def test_missing_token_in_default_css_is_error() -> None:
     with pytest.raises(PermanentError, match="token"):
         payload.build(M, good_inputs(), ":root{}")
+
+
+def test_secret_inputs_never_reach_payload_or_branding() -> None:
+    p, files = build(good_inputs())
+    blob = json.dumps(p) + b"".join(files.values()).decode("latin-1")
+    assert "tajne-heslo" not in blob and "smtp.testova.example" not in blob
+
+
+def test_secrets_are_env_values_as_text() -> None:
+    assert payload.secrets(M, good_inputs()) == {
+        "SMTP_HOST": "smtp.testova.example",
+        "SMTP_PORT": "587",
+        "SMTP_USER": "info@testova.example",
+        "SMTP_PASSWORD": "tajne-heslo",
+        "MAIL_FROM": "info@testova.example",
+    }
+
+
+def test_secrets_validate_inputs() -> None:
+    with pytest.raises(PermanentError, match="smtp_port"):
+        payload.secrets(M, {**good_inputs(), "smtp_port": 25})
+    with pytest.raises(PermanentError, match="smtp_password"):
+        payload.secrets(M, {k: v for k, v in good_inputs().items() if k != "smtp_password"})

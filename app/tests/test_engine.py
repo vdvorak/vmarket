@@ -57,7 +57,11 @@ def test_happy_path(env: Env) -> None:
     w = env.world
     assert env.row()["state"] == "running" and env.row()["fly_app_name"] == "vm-autoskola-testova"
     assert w.dns == {"testova.apps.example.cz": "vm-autoskola-testova.fly.dev"}
-    assert w.secrets["SMTP_HOST"] == "smtp.fake" and w.secrets["LITESTREAM_REPLICA_URL"] == "s3://vm-autoskola-testova"
+    assert (
+        w.secrets["SMTP_HOST"] == "smtp.testova.example"
+        and w.secrets["SMTP_PASSWORD"] == "tajne-heslo"
+        and w.secrets["LITESTREAM_REPLICA_URL"] == "s3://vm-autoskola-testova"
+    )
     assert "/data/provision.json.done" in w.files and "/data/provision.json" not in w.files
     assert json.loads(w.files["/data/branding/branding.json"])["name"] == "Autoškola Testová"
     assert w.spec is not None and w.spec.image == "ghcr.io/vdvorak/autoskola-app:1.0.0" and w.spec.memory_mb == 512
@@ -76,13 +80,13 @@ def test_gives_up_after_retries_then_resumes_without_repeating_done_steps(env: E
     env.world.fail["ensure_machine"] = 99
     assert env.run() == "failed"
     assert "ensure_machine" in env.row()["failure_reason"] or "machine" in env.row()["failure_reason"]
-    assert env.steps("done") == ["r2_bucket", "mail_identity", "fly_app", "fly_volume", "fly_secrets", "dns"]
+    assert env.steps("done") == ["r2_bucket", "smtp_check", "fly_app", "fly_volume", "fly_secrets", "dns"]
     before = dict(env.world.calls)
 
     env.world.fail["ensure_machine"] = 0
     assert env.run() == "running"
     # už hotové kroky se nezopakovaly
-    for call in ("ensure_backup_bucket", "ensure_sender", "ensure_app", "ensure_volume", "set_secrets", "ensure_cname"):
+    for call in ("ensure_backup_bucket", "smtp_check", "ensure_app", "ensure_volume", "set_secrets", "ensure_cname"):
         assert env.world.calls[call] == before[call]
     assert env.row()["failure_reason"] is None
 
@@ -143,3 +147,25 @@ def test_events_are_logged(env: Env) -> None:
     env.run()
     kinds = [r[0] for r in env.conn.execute("SELECT kind FROM event_log WHERE instance_id = ?", (env.id,))]
     assert kinds.count("provision.step") == 11 and kinds[-1] == "instance.running"
+
+
+def test_smtp_is_checked_with_customers_credentials(env: Env) -> None:
+    env.run()
+    assert env.adapters.smtp.checked == [("smtp.testova.example", 587, "info@testova.example", "tajne-heslo")]  # type: ignore[attr-defined]
+
+
+def test_bad_smtp_credentials_fail_before_anything_is_deployed(env: Env) -> None:
+    env.world.smtp_error = "SMTP smtp.testova.example:587: přihlášení odmítnuto (535)"
+    assert env.run() == "failed"
+    assert "535" in env.row()["failure_reason"]
+    assert env.world.calls["ensure_app"] == 0 and env.world.calls["ensure_machine"] == 0
+
+
+def test_smtp_secrets_are_erased_from_db_only_after_success(env: Env) -> None:
+    env.world.fail["ensure_machine"] = 99
+    env.run()
+    assert "smtp_password" in json.loads(env.row()["inputs_json"])  # po selhání je potřeba k opakování
+    env.world.fail["ensure_machine"] = 0
+    assert env.run() == "running"
+    stored = json.loads(env.row()["inputs_json"])
+    assert "smtp_password" not in stored and "smtp_host" not in stored and stored["school_name"] == "Autoškola Testová"

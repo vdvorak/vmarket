@@ -74,9 +74,10 @@ class ObjectStore(Protocol):
         ...
 
 
-class Mail(Protocol):
-    def ensure_sender(self, slug: str) -> Secrets:
-        """Odesílací identita a SMTP přístupy Instance (SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, MAIL_FROM)."""
+class Smtp(Protocol):
+    def check(self, host: str, port: int, user: str, password: str) -> None:
+        """Ověří spojení, TLS a přihlášení. Špatné přihlašovací údaje nebo nedostupný server s jasnou chybou = PermanentError,
+        dočasná síťová chyba = AdapterError. E-mail se neodesílá."""
         ...
 
 
@@ -91,5 +92,5 @@ class Adapters:
     fly: Fly
     dns: Dns
     store: ObjectStore
-    mail: Mail
+    smtp: Smtp
     probe: Probe

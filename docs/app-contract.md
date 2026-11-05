@@ -14,7 +14,7 @@ What an App must satisfy to be registered in vmarket. This draft guides Phase 1;
 - All configuration comes from environment variables.
 - Data lives in SQLite under a single data directory (default `/data`), WAL mode.
 - Litestream conventions: honors `LITESTREAM_REPLICA_URL` + `LITESTREAM_S3_*`; restores the DB from the replica on boot when the local file is missing.
-- Outbound email via SMTP from env (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `MAIL_FROM`); the App must behave sanely when SMTP is unconfigured.
+- Outbound email via SMTP from env (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `MAIL_FROM`); the App must behave sanely when SMTP is unconfigured. The Customer supplies these values (ADR 0005), so an App that sends email declares `sends_email: true` and the five SMTP Inputs in its Manifest.
 
 ## Provisioning
 
@@ -59,13 +59,14 @@ First implemented by the autoskola App (`app/vmarket.yaml` in dominik-web); this
 - `provisioning`: `payload_file`, `payload_version`, `branding_dir`, `branding_defaults_dir` (directory in the image with the App's neutral default branding; required when an Input has type `color_tokens`, because the provisioner rewrites the tokens in the default `tokens.css` read from there). The payload format itself is owned by the App (documented in its README) and versioned by `payload_version`.
 - `env` (optional): static environment variables every Instance gets (for example `SECURE_COOKIES`, `CLIENT_IP_HEADER`). vmarket adds the per-Instance ones itself (`APP_URL`, SMTP, Litestream).
 - `resources`: `machines` (must be 1), `memory_mb`, `volume_gb`, `volume_mount`, `port`, `health` (`path`, `grace_period_s`), `metrics` (`port`, `path`).
+- `sends_email` (optional, default false): the App sends email. Then the Inputs must contain targets `secret:SMTP_HOST`, `secret:SMTP_PORT`, `secret:SMTP_USER`, `secret:SMTP_PASSWORD` and `secret:MAIL_FROM`; vmarket checks the credentials before provisioning.
 - `plans`: list of `id`, `name`, `interval`, `price_czk` (`null` = TBD until pricing is decided).
 - `inputs`: list of typed fields. Each has `id`, `type`, `label` (shown to the Customer, in the App's language), optional `help`, `required`, `default`, `validation`, and `target`.
 - `payload_constants`: fixed payload values the Customer does not enter (for example `version`).
 
-Input types: `text`, `email`, `url`, `number`, `money` (with `currency`), `boolean`, `image`, `color_tokens` (a group of `color` fields, each mapped to a CSS token), `table`. A `table` has `columns` (same field shape, `target` is relative to a row) and `min_rows`/`max_rows`. Rows that share a parent key are grouped by the provisioner (autoskola: `courses` rows with the same `course_slug` become one course with `variants[]`).
+Input types: `text`, `email`, `url`, `number`, `money` (with `currency`), `boolean`, `image`, `secret` (text that is never shown again or stored in the payload), `color_tokens` (a group of `color` fields, each mapped to a CSS token), `table`. A `table` has `columns` (same field shape, `target` is relative to a row) and `min_rows`/`max_rows`. Rows that share a parent key are grouped by the provisioner (autoskola: `courses` rows with the same `course_slug` become one course with `variants[]`).
 
 `validation` keys: `min_length`, `max_length`, `pattern` (+ `message`), `min`, `max`, `integer`, `one_of`, `schemes` (url), `formats`/`min_width_px`/`max_size_kb` (image), `min_rows`/`max_rows`. The same rules must be enforced by the App when it imports the payload; the manifest is stricter or equal, never looser.
 
-`target` says where the value lands: `payload:<dotted.path>` is a key in `provision.json`; `branding:<file>` is a file the provisioner writes straight into `branding_dir` (`branding:branding.json#name` is a key inside a JSON file the provisioner assembles). Branding therefore never travels in the payload, matching the App Contract's Branding section.
+`target` says where the value lands: `payload:<dotted.path>` is a key in `provision.json`; `secret:<ENV_NAME>` becomes a Fly secret of the Instance (environment variable) and never appears in the payload or branding; `branding:<file>` is a file the provisioner writes straight into `branding_dir` (`branding:branding.json#name` is a key inside a JSON file the provisioner assembles). Branding therefore never travels in the payload, matching the App Contract's Branding section.
 

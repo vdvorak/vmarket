@@ -5,8 +5,9 @@ from typing import Any
 
 import yaml
 
-INPUT_TYPES = {"text", "email", "url", "number", "money", "boolean", "image", "color_tokens", "table"}
-TARGET_PREFIXES = ("payload:", "branding:")
+INPUT_TYPES = {"text", "email", "url", "number", "money", "boolean", "image", "secret", "color_tokens", "table"}
+TARGET_PREFIXES = ("payload:", "branding:", "secret:")
+SMTP_SECRETS = ("SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASSWORD", "MAIL_FROM")
 
 
 class ManifestError(ValueError):
@@ -28,6 +29,7 @@ class Manifest:
     description: str
     image: str
     plans: list[PlanSpec]
+    sends_email: bool
     raw: dict[str, Any]
 
 
@@ -96,4 +98,10 @@ def from_dict(data: Any) -> Manifest:
     _require(len({p.key for p in plans}) == len(plans), "plans: duplicitní id")
 
     _check_inputs(data.get("inputs") or [], "inputs", set())
-    return Manifest(app_id, _text(data, "name", ""), _text(data, "description", ""), image, plans, data)
+    sends_email = data.get("sends_email", False)
+    _require(isinstance(sends_email, bool), "sends_email: ano/ne")
+    if sends_email:
+        targets = {i.get("target") for i in data.get("inputs") or []}
+        missing = [f"secret:{name}" for name in SMTP_SECRETS if f"secret:{name}" not in targets]
+        _require(not missing, f"sends_email: chybí Inputy s cíli {', '.join(missing)}")
+    return Manifest(app_id, _text(data, "name", ""), _text(data, "description", ""), image, plans, sends_email, data)

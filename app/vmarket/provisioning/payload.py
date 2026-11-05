@@ -31,7 +31,7 @@ def _fail(where: str, msg: str) -> PermanentError:
 def _check_scalar(item: dict[str, Any], value: Any, where: str) -> None:
     v = item.get("validation") or {}
     kind = item["type"]
-    if kind in {"text", "email", "url"}:
+    if kind in {"text", "email", "url", "secret"}:
         if not isinstance(value, str):
             raise _fail(where, "očekávám text")
         if len(value) < v.get("min_length", 0) or len(value) > v.get("max_length", 10**9):
@@ -156,6 +156,27 @@ def _tokens(item: dict[str, Any], value: Any, default_css: str, where: str) -> b
     return css.encode()
 
 
+def secret_input_ids(manifest: Manifest) -> list[str]:
+    return [i["id"] for i in manifest.raw.get("inputs") or [] if str(i.get("target", "")).startswith("secret:")]
+
+
+def secrets(manifest: Manifest, inputs: dict[str, Any]) -> dict[str, str]:
+    """Hodnoty Inputů s cílem `secret:<ENV>` jako proměnné prostředí (Fly secrets). Neprázdné, hodnoty se převedou na text."""
+    out: dict[str, str] = {}
+    for item in manifest.raw.get("inputs") or []:
+        target = str(item.get("target", ""))
+        if not target.startswith("secret:"):
+            continue
+        value = inputs.get(item["id"], item.get("default"))
+        if _empty(value):
+            if item.get("required"):
+                raise _fail(item["id"], "chybí povinná hodnota")
+            continue
+        _check_scalar(item, value, item["id"])
+        out[target.removeprefix("secret:")] = str(value)
+    return out
+
+
 def build(manifest: Manifest, inputs: dict[str, Any], default_tokens_css: str = "") -> tuple[dict[str, Any], dict[str, bytes]]:
     """Vrátí (payload, soubory brandingu podle názvu souboru). `inputs`: id Inputu → hodnota (obrázek jako bytes)."""
     payload: dict[str, Any] = {}
@@ -188,6 +209,8 @@ def build(manifest: Manifest, inputs: dict[str, Any], default_tokens_css: str = 
         else:
             _check_scalar(item, value, where)
 
+        if target.startswith("secret:"):
+            continue  # jde do Fly secrets, viz secrets()
         if target.startswith("branding:"):
             name, _, key = target.removeprefix("branding:").partition("#")
             if not key:

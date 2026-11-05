@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from vmarket.adapters.cloudflare import CloudflareDns, R2Store
 from vmarket.adapters.fly import FlyApi
 from vmarket.adapters.probe import HttpProbe
-from vmarket.adapters.resend import ResendMail
+from vmarket.adapters.smtp import SmtpChecker
 from vmarket.provisioning.ports import Adapters
 
 REQUIRED = {
@@ -16,8 +16,6 @@ REQUIRED = {
     "CLOUDFLARE_ZONE_ID": "id zóny s doménou Instancí",
     "CLOUDFLARE_R2_TOKEN": "Account → R2 Storage → Edit a API Tokens → Edit",
     "CLOUDFLARE_ACCOUNT_ID": "id účtu Cloudflare",
-    "RESEND_API_KEY": "plný přístup (zakládá klíče pro Instance)",
-    "RESEND_DOMAIN": "ověřená odesílací doména, např. mail.vitekdvorak.cz",
 }
 
 
@@ -33,6 +31,6 @@ def from_env(env: Mapping[str, str] | None = None) -> Adapters:
         fly=FlyApi(e["FLY_API_TOKEN"], e["FLY_ORG_SLUG"]),
         dns=CloudflareDns(e["CLOUDFLARE_DNS_TOKEN"], e["CLOUDFLARE_ZONE_ID"]),
         store=R2Store(e["CLOUDFLARE_R2_TOKEN"], e["CLOUDFLARE_ACCOUNT_ID"], jurisdiction=e.get("CLOUDFLARE_R2_JURISDICTION", "default")),
-        mail=ResendMail(e["RESEND_API_KEY"], e["RESEND_DOMAIN"], e.get("RESEND_DOMAIN_ID") or None),
+        smtp=SmtpChecker(),
         probe=HttpProbe(),
     )

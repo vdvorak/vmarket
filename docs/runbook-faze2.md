@@ -19,16 +19,13 @@ Cíl: provést přes `python -m vmarket.cli` první Instance na skutečných slu
 4. Zapnout R2 (chce kartu).
 5. Tokeny: DNS (Zone → DNS → Edit, jen tato zóna) → `CLOUDFLARE_DNS_TOKEN`; R2 (Account → Workers R2 Storage → Edit + Account → API Tokens → Edit) → `CLOUDFLARE_R2_TOKEN`.
 
-**Resend**
-1. Domains → Add `mail.vitekdvorak.cz` (region EU), DNS záznamy přidat v Cloudflare jako DNS only, počkat na Verified.
-2. API key s plným přístupem → `RESEND_API_KEY`; ID domény → `RESEND_DOMAIN_ID` (nepovinné).
+**E-mail:** žádný poskytovatel nepotřebujete (ADR 0005). Zákazník dodá SMTP schránku jako Inputy. Pro zkoušku použijte schránku, ze které můžete posílat (např. Wedos z ubouraka), a v `inputs-testova.json` vyplňte `smtp_host`, `smtp_port`, `smtp_user`, `smtp_password` a `mail_from`. vmarket údaje při Provisioningu ověří (krok `smtp_check`) a po úspěchu je smaže ze své databáze.
 
 ## 2. Proměnné prostředí
 
 ```sh
 export FLY_API_TOKEN=… FLY_ORG_SLUG=vmarket-instances
 export CLOUDFLARE_DNS_TOKEN=… CLOUDFLARE_ZONE_ID=… CLOUDFLARE_ACCOUNT_ID=… CLOUDFLARE_R2_TOKEN=…
-export RESEND_API_KEY=… RESEND_DOMAIN=mail.vitekdvorak.cz RESEND_DOMAIN_ID=…
 export VMARKET_BASE_DOMAIN=apps.vitekdvorak.cz
 export DATABASE_PATH=$HOME/vmarket-dev.db
 ```
@@ -39,7 +36,7 @@ export DATABASE_PATH=$HOME/vmarket-dev.db
 cd app && uv sync
 uv run python -m vmarket.cli app register ../../dominik-web/app/vmarket.yaml
 uv run python -m vmarket.cli release add autoskola app-v0.1.0
-cp ../docs/examples/* /tmp/ && $EDITOR /tmp/inputs-testova.json     # operator_email na vaši adresu
+cp ../docs/examples/* /tmp/ && $EDITOR /tmp/inputs-testova.json     # operator_email na vaši adresu a SMTP údaje
 uv run python -m vmarket.cli instance comp --app autoskola --slug testova --email vy@example.cz --inputs /tmp/inputs-testova.json
 uv run python -m vmarket.cli status testova
 ```
@@ -49,7 +46,7 @@ Při `failed` opravit příčinu z výpisu a spustit `instance provision testova
 Ověřit:
 - `https://testova.apps.vitekdvorak.cz/api/health` vrací ok,
 - v prohlížeči jiný název, logo a barvy,
-- Provozovateli přišel e-mail s odkazem na heslo (i spam),
+- Provozovateli přišel e-mail s odkazem na heslo (i spam); při chybném SMTP končí Provisioning `failed` v kroku `smtp_check` s hláškou serveru,
 - metriky na portu 9091: `fly ssh console -a vm-autoskola-testova -C "python -c \"import urllib.request as u;print(u.urlopen('http://localhost:9091/metrics').read()[:200])\""`,
 - `ubouraka-zaci` běží beze změny.
 
@@ -63,4 +60,4 @@ Stejný postup se skutečnými daty a slugem. Instance #1 (`ubouraka-zaci`) zůs
 
 Zapsat do issue #6, co selhalo nebo bylo ručně otravné, a issue zavřít.
 
-Neověřené předpoklady adaptérů: logy z Fly (`recent_logs`), pole `domain_id` u API klíče Resendu, SMTP údaje Resendu, název R2 oprávnění.
+Neověřené předpoklady adaptérů: logy z Fly (`recent_logs`), název R2 oprávnění.

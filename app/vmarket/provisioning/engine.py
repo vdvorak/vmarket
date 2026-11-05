@@ -57,15 +57,19 @@ class Ctx:
         return str(self.out["machine"]["id"])
 
     def secrets(self) -> dict[str, str]:
-        return {**self.out["r2_bucket"]["secrets"], **self.out["mail_identity"]["secrets"]}
+        return {**self.out["r2_bucket"]["secrets"], **payload_builder.secrets(self.manifest, self.inputs)}
 
 
 def _r2_bucket(c: Ctx) -> dict[str, Any]:
     return {"secrets": c.adapters.store.ensure_backup_bucket(c.fly_app).values}
 
 
-def _mail_identity(c: Ctx) -> dict[str, Any]:
-    return {"secrets": c.adapters.mail.ensure_sender(c.slug).values}
+def _smtp_check(c: Ctx) -> dict[str, Any]:
+    """Odkaz na heslo Provozovateli jde přes zákazníkovu schránku; se špatnými údaji by se do Instance nikdo nedostal."""
+    if c.manifest.sends_email:
+        s = payload_builder.secrets(c.manifest, c.inputs)
+        c.adapters.smtp.check(s["SMTP_HOST"], int(s["SMTP_PORT"]), s["SMTP_USER"], s["SMTP_PASSWORD"])
+    return {}
 
 
 def _fly_app(c: Ctx) -> dict[str, Any]:
@@ -160,7 +164,7 @@ def _verify_import(c: Ctx) -> dict[str, Any]:
 # (název, funkce, počet pokusů; None = z Config). Health si čeká sám, proto jen jeden pokus navíc.
 STEPS: list[tuple[str, Callable[[Ctx], dict[str, Any]], int | None]] = [
     ("r2_bucket", _r2_bucket, None),
-    ("mail_identity", _mail_identity, None),
+    ("smtp_check", _smtp_check, None),
     ("fly_app", _fly_app, None),
     ("fly_volume", _fly_volume, None),
     ("fly_secrets", _fly_secrets, None),
@@ -254,6 +258,16 @@ def _run_step(c: Ctx, name: str, fn: Callable[[Ctx], dict[str, Any]], tries: int
     raise PermanentError(f"Krok {name} selhal po {tries} pokusech: {last}")
 
 
+def _erase_secret_inputs(conn: sqlite3.Connection, instance_id: int, manifest: Manifest) -> None:
+    """Po úspěchu jsou tajné Inputy (SMTP heslo) jen ve Fly secrets Instance; kopie v databázi, kterou zálohuje Litestream, se maže."""
+    ids = set(payload_builder.secret_input_ids(manifest))
+    row = conn.execute("SELECT inputs_json FROM instances WHERE id = ?", (instance_id,)).fetchone()
+    kept = {k: v for k, v in json.loads(row["inputs_json"]).items() if k not in ids}
+    with conn:
+        conn.execute("UPDATE instances SET inputs_json = ? WHERE id = ?", (json.dumps(kept), instance_id))
+        repo.log_event(conn, "provision.secrets_erased", ", ".join(sorted(ids)), instance_id)
+
+
 def provision(conn: sqlite3.Connection, instance_id: int, adapters: Adapters, config: Config) -> str:
     """Provede (nebo dokončí) Provisioning a vrátí výsledný stav Instance (`running` nebo `failed`).
     Neplatný výchozí stav (např. `running`) vyhodí TransitionError."""
@@ -274,5 +288,6 @@ def provision(conn: sqlite3.Connection, instance_id: int, adapters: Adapters, co
     except Exception as e:
         repo.transition(conn, instance_id, "failed", f"Interní chyba: {e!r}")
         raise
+    _erase_secret_inputs(conn, instance_id, ctx.manifest)
     repo.transition(conn, instance_id, "running")
     return "running"
