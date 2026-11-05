@@ -1,0 +1,209 @@
+# Manifest App pro vmarket (formát: vmarket/docs/app-contract.md, sekce Manifest).
+# Inputs jsou jediný zdroj pravdy o tom, co musí zákazník dodat. Z nich vmarket generuje objednávkový formulář
+# a Provisioning Payload (formát verze 1, popsaný v app/README.md, zpracovává zaci/provision.py).
+#
+# Každý Input má `target`, kam se jeho hodnota dostane:
+#   payload:<cesta>   klíč v /data/provision.json (tečková cesta, [] = položka pole)
+#   branding:<soubor> soubor v /data/branding/ (provisioner ho zapíše přímo, payload ho nenese; zaci/branding.py)
+# Texty, hlášky a labely jsou česky, protože je vidí zákazník autoškoly.
+
+manifest_version: 1
+
+id: autoskola
+name: Autoškola – rezervace
+description: >-
+  Aplikace pro autoškolu: online Přihlášky na Kurzy, rezervace Jízd a Lekcí, Storna a Pokuty, platby převodem
+  s QR kódem a e-maily Žákům. Vlastní doména, logo a barvy autoškoly.
+
+image: ghcr.io/vdvorak/autoskola-app # tag doplňuje Release (workflow release.yml, git tag app-v*)
+
+provisioning:
+  payload_file: /data/provision.json
+  payload_version: 1
+  branding_dir: /data/branding
+
+resources:
+  machines: 1 # přesně jeden stroj, plánovač a Litestream nesnesou dva
+  memory_mb: 512
+  volume_gb: 1
+  volume_mount: /data
+  port: 8000
+  health: { path: /api/health, grace_period_s: 60 }
+  metrics: { port: 9091, path: /metrics }
+
+# Zatím placeholder, cena a podoba plánů je zaparkovaná v plánu vmarketu.
+plans:
+  - id: monthly
+    name: Měsíční
+    interval: month
+    price_czk: null # TBD
+
+inputs:
+  # --- Autoškola a branding ---
+  - id: school_name
+    type: text
+    label: Název autoškoly
+    help: Zobrazí se v záhlaví aplikace, v e-mailech a v QR platbách.
+    target: branding:branding.json#name
+    required: true
+    validation: { min_length: 2, max_length: 80 }
+  - id: school_short_name
+    type: text
+    label: Krátký název
+    help: Do úzkých míst (mobil, záložka prohlížeče). Bez vyplnění se použije celý název.
+    target: branding:branding.json#short_name
+    required: false
+    validation: { max_length: 30 }
+  - id: logo
+    type: image
+    label: Logo
+    help: Logo do e-mailů. Z něj vmarket vyrobí i ikony aplikace.
+    target: branding:logo-email.jpg # ikony ikona-32.png a ikona-180.png dělá provisioner z loga
+    required: true
+    validation: { formats: [png, jpg, svg], min_width_px: 512, max_size_kb: 2048 }
+  - id: colors
+    type: color_tokens
+    label: Barvy aplikace
+    help: Hlavní a doplňková barva. Ostatní odstíny aplikace dopočítá, aby byl text čitelný.
+    target: branding:tokens.css # provisioner přepíše tyto tokeny ve výchozím tokens.css
+    required: true
+    fields:
+      - { id: primary, token: --color-primary, type: color, label: Hlavní barva, default: "#1f5fd6" }
+      - { id: accent, token: --color-accent, type: color, label: Doplňková barva, default: "#f4b200" }
+    validation: { min_contrast_primary_on_white: 4.5 }
+
+  # --- Provozovatel (účet správce) ---
+  - id: operator_email
+    type: email
+    label: E-mail Provozovatele
+    help: Na něj přijde odkaz na nastavení hesla a upozornění aplikace.
+    target: payload:operator.email
+    required: true
+    validation: { max_length: 254 }
+  - id: operator_person_name
+    type: text
+    label: Jméno a příjmení Provozovatele
+    target: payload:operator.name
+    required: true
+    validation: { min_length: 2, max_length: 80 }
+
+  # --- Údaje autoškoly (Nastavení) ---
+  - id: operator_name
+    type: text
+    label: Obchodní jméno Provozovatele
+    help: Jak se autoškola jmenuje ve smlouvě a v e-mailech, třeba "Autoškola Nová s.r.o.".
+    target: payload:settings.operator_name
+    required: true
+    validation: { min_length: 2, max_length: 120 }
+  - id: operator_ico
+    type: text
+    label: IČO
+    target: payload:settings.operator_ico
+    required: true
+    validation: { pattern: "^\\d{8}$", message: IČO má 8 číslic. }
+  - id: operator_address
+    type: text
+    label: Adresa sídla
+    help: Ulice a číslo, PSČ a obec.
+    target: payload:settings.operator_address
+    required: true
+    validation: { min_length: 5, max_length: 200 }
+  - id: phone
+    type: text
+    label: Telefon autoškoly
+    target: payload:settings.phone
+    required: true
+    validation: { pattern: "^\\+?[0-9 ]{9,16}$", message: Telefon zadejte třeba jako +420 777 000 111. }
+  - id: bank_account
+    type: text
+    label: Bankovní účet pro platby
+    help: Na něj Žáci posílají platby za Kurzy a Pokuty.
+    target: payload:settings.bank_account
+    required: true
+    validation: { pattern: "^(\\d{1,6}-)?\\d{2,10}/\\d{4}$", message: Číslo účtu zadejte ve tvaru 123456-1234567890/0100. }
+
+  # --- Právní odkazy ---
+  - id: terms_url
+    type: url
+    label: Odkaz na obchodní podmínky
+    target: payload:settings.terms_url
+    required: true
+    validation: { schemes: [https, http] }
+  - id: privacy_url
+    type: url
+    label: Odkaz na ochranu osobních údajů
+    target: payload:settings.privacy_url
+    required: true
+    validation: { schemes: [https, http] }
+  - id: withdrawal_url
+    type: url
+    label: Odkaz na odstoupení od smlouvy
+    target: payload:settings.withdrawal_url
+    required: true
+    validation: { schemes: [https, http] }
+
+  # --- Kurzy a ceník ---
+  - id: courses
+    type: table
+    label: Kurzy a jejich Varianty
+    help: Každý řádek je jedna Varianta Kurzu. Řádky se stejným slugem tvoří jeden Kurz.
+    target: payload:courses # provisioner seskupí řádky podle course_slug na courses[].variants[]
+    required: true
+    validation: { min_rows: 1, max_rows: 100 }
+    columns:
+      - { id: course_slug, type: text, label: Adresa Kurzu (slug), target: slug, required: true, validation: { pattern: "^[a-z0-9]+(-[a-z0-9]+)*$", message: Jen malá písmena bez diakritiky, číslice a pomlčky. } }
+      - { id: course_name, type: text, label: Název Kurzu, target: name, required: true, validation: { min_length: 2, max_length: 100 } }
+      - { id: course_halves, type: boolean, label: Lze platit na dvě poloviny, target: halves, default: false }
+      - { id: course_driving, type: boolean, label: Řidičský kurz (Lekce a Jízdy navíc), target: driving, default: false }
+      - { id: course_note, type: text, label: Věta navíc do potvrzení Přihlášky, target: confirmation_note, required: false, validation: { max_length: 300 } }
+      - { id: variant_key, type: text, label: Kód Varianty, target: "variants[].key", required: true, validation: { pattern: "^[a-z0-9]+(-[a-z0-9]+)*$", message: Jen malá písmena bez diakritiky, číslice a pomlčky. } }
+      - { id: variant_name, type: text, label: Název Varianty, target: "variants[].name", required: true, validation: { min_length: 2, max_length: 100 } }
+      - { id: variant_price, type: money, currency: CZK, label: Cena, target: "variants[].price", required: true, validation: { integer: true, min: 0, max: 1000000 } }
+      - { id: variant_hours, type: number, label: Základní Nárok (Vyučovací hodiny Jízd), target: "variants[].entitlement_hours", required: true, validation: { integer: true, min: 0, max: 1000 } }
+      - { id: variant_weekly_limit, type: number, label: Nejvýš Jízd v týdnu, help: "Bez vyplnění bez limitu.", target: "variants[].weekly_limit", required: false, validation: { integer: true, min: 1, max: 20 } }
+  - id: extra_ride_prices
+    type: table
+    label: Ceník Jízd navíc
+    help: Přesně tři balíčky, 1, 3 a 6 Jízd. Bez vyplnění se ceník nezaloží a Jízdy navíc nejdou prodávat.
+    target: payload:extra_ride_prices
+    required: false
+    validation: { min_rows: 3, max_rows: 3, required_values: { rides: [1, 3, 6] } }
+    columns:
+      - { id: rides, type: number, label: Počet Jízd v balíčku, target: rides, required: true, validation: { integer: true, one_of: [1, 3, 6] } }
+      - { id: price, type: money, currency: CZK, label: Cena balíčku, target: price, required: true, validation: { integer: true, min: 0, max: 1000000 } }
+
+  # --- Pravidla plateb a Storna ---
+  - id: due_days
+    type: number
+    label: Splatnost plateb (dny)
+    target: payload:settings.due_days
+    required: false
+    default: 7
+    validation: { integer: true, min: 1, max: 90 }
+  - id: storno_hours
+    type: number
+    label: Lhůta Storna zdarma (hodiny před Jízdou)
+    target: payload:settings.storno_hours
+    required: false
+    default: 48
+    validation: { integer: true, min: 0, max: 720 }
+  - id: fine_ride
+    type: money
+    currency: CZK
+    label: Pokuta za pozdní Storno nebo nepříchod na Jízdu
+    target: payload:settings.fine_ride
+    required: false
+    default: 800
+    validation: { integer: true, min: 0, max: 100000 }
+  - id: fine_lesson
+    type: money
+    currency: CZK
+    label: Pokuta za pozdní Storno nebo nepříchod na Lekci
+    target: payload:settings.fine_lesson
+    required: false
+    default: 400
+    validation: { integer: true, min: 0, max: 100000 }
+
+# Pevné hodnoty payloadu, které zákazník nezadává.
+payload_constants:
+  version: 1
