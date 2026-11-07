@@ -18,7 +18,7 @@ from PIL import Image, UnidentifiedImageError
 from vmarket.manifest import Manifest
 from vmarket.provisioning.ports import PermanentError
 
-ICONS = {"ikona-32.png": 32, "ikona-180.png": 180}
+ICONS = {"ikona-32.png": 32, "ikona-180.png": 180, "ikona-192.png": 192, "ikona-512.png": 512}
 LOGO = "logo-email.jpg"
 TOKENS = "tokens.css"
 HEX = re.compile(r"^#[0-9a-fA-F]{6}$")

@@ -81,8 +81,10 @@ def test_builds_payload_and_branding() -> None:
     assert json.loads(files["branding.json"]) == {"name": "Autoškola Testová"}
     css = files["tokens.css"].decode()
     assert "--color-primary: #7b2cbf;" in css and "--color-accent: #2ec4b6; /* komentář */" in css
-    assert set(files) == {"branding.json", "tokens.css", "logo-email.jpg", "ikona-32.png", "ikona-180.png"}
-    assert Image.open(io.BytesIO(files["ikona-180.png"])).size == (180, 180)
+    icons = {"ikona-32.png": 32, "ikona-180.png": 180, "ikona-192.png": 192, "ikona-512.png": 512}
+    assert set(files) == {"branding.json", "tokens.css", "logo-email.jpg", *icons}
+    for name, size in icons.items():
+        assert Image.open(io.BytesIO(files[name])).size == (size, size), name
     assert Image.open(io.BytesIO(files["logo-email.jpg"])).format == "JPEG"
 
 

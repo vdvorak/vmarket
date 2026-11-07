@@ -67,7 +67,7 @@ inputs:
     type: image
     label: Logo
     help: Logo do e-mailů. Z něj vmarket vyrobí i ikony aplikace.
-    target: branding:logo-email.jpg # ikony ikona-32.png a ikona-180.png dělá provisioner z loga
+    target: branding:logo-email.jpg # ikony ikona-32.png, ikona-180.png, ikona-192.png a ikona-512.png dělá provisioner z loga
     required: true
     validation: { formats: [png, jpg, svg], min_width_px: 512, max_size_kb: 2048 }
   - id: colors
